@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import NpyVisualizer from './NpyVisualizer';
 
 const Main = () => {
-    const [npyFiles, setNpyFiles] = useState([]);
+    const [imageFiles, setImageFiles] = useState({});
     const [loading, setLoading] = useState(false);
     const [showVisualizer, setShowVisualizer] = useState(false);
-    const [imageFiles, setImageFiles] = useState([]);
+    const [currentModality, setCurrentModality] = useState('modality_1'); // Default to the first modality
 
     const handleFileChange = (event) => {
         const files = event.target.files;
@@ -34,14 +34,17 @@ const Main = () => {
             }
 
             const data = await response.json();
-            const slices = data.slices; // This will be an array of base64 images
-            setImageFiles(slices);
+            setImageFiles(data); // Store the resulting images for all modalities
             setShowVisualizer(true);
         } catch (error) {
             console.error(error);
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleModalityChange = (modality) => {
+        setCurrentModality(modality);
     };
 
     return (
@@ -60,8 +63,15 @@ const Main = () => {
             ) : (
                 <div>
                     <h2>2D Slices Visualization</h2>
-                    {imageFiles.map((slice, index) => (
-                        <img style={{width: '100px', height: '100px', margin: '10px'}} key={index} src={`data:image/jpeg;base64,${slice}`} alt={`Slice ${index + 1}`} />
+                    <div>
+                        <button onClick={() => handleModalityChange('modality_1')}>Modality 1</button>
+                        <button onClick={() => handleModalityChange('modality_2')}>Modality 2</button>
+                        <button onClick={() => handleModalityChange('modality_3')}>Modality 3</button>
+                        <button onClick={() => handleModalityChange('modality_4')}>Modality 4</button>
+                        <button onClick={() => handleModalityChange('segmentation')}>Segmentation</button>
+                    </div>
+                    {imageFiles[currentModality] && imageFiles[currentModality].map((slice, index) => (
+                        <img style={{ width: '100px', height: '100px', margin: '10px' }} key={index} src={`data:image/jpeg;base64,${slice}`} alt={`Slice ${index + 1}`} />
                     ))}
                 </div>
             )}

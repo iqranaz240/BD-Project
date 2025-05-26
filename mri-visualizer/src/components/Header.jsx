@@ -3,7 +3,7 @@ import React from 'react';
 const Header = () => {
     return (
         <header>
-            <h1>StreamBrain: MRI Tumor Analysis</h1>
+            <h1 style={{ color: 'white', fontSize: '2rem', fontWeight: 'bold', position: 'fixed', top: '10px'}}>Stream Brain: MRI Tumor Analysis</h1>
         </header>
     );
 };

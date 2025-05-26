@@ -131,21 +131,38 @@ def process_nii():
         # Load the NIfTI file from the temporary file
         img = nib.load(temp_file_path)
         img_data = img.get_fdata()
+        print(f"Data shape: {img_data.shape}")  # Debugging line
 
-        # Prepare to store all slices
-        all_slices = []
+        # Prepare to store all slices for each modality
+        all_slices = {
+            'modality_1': [],
+            'modality_2': [],
+            'modality_3': [],
+            'modality_4': [],
+            'segmentation': []
+        }
 
-        # Iterate over the z-axis to extract all slices
-        for i in range(img_data.shape[2]):
-            slice_data = img_data[:, :, i]  # Get the 2D slice
-            # Normalize the slice
-            slice_data = normalize_image(slice_data)
+        # Check the number of dimensions
+        if img_data.ndim == 3:
+            # Handle 3D data (single modality)
+            for i in range(img_data.shape[2]):  # Iterate over z-axis
+                slice_data = img_data[:, :, i]  # Get the 2D slice
+                # Normalize the slice
+                slice_data = normalize_image(slice_data)
+                base64_image = to_base64(slice_data)
+                all_slices['segmentation'].append(base64_image)  # Store in modality_1
+        elif img_data.ndim == 4:
+            # Handle 4D data (multiple modalities)
+            for modality in range(img_data.shape[3]):  # Iterate over modalities
+                for i in range(img_data.shape[2]):  # Iterate over z-axis
+                    slice_data = img_data[:, :, i, modality]  # Get the 2D slice for the current modality
+                    # Normalize the slice
+                    slice_data = normalize_image(slice_data)
+                    base64_image = to_base64(slice_data)
+                    modality_key = f'modality_{modality + 1}' if modality < 4 else 'segmentation'
+                    all_slices[modality_key].append(base64_image)
 
-            # Convert to base64
-            base64_image = to_base64(slice_data)
-            all_slices.append(base64_image)
-
-        return jsonify({'slices': all_slices})  # Return all slices as a list
+        return jsonify(all_slices)  # Return all slices as a dictionary
     except Exception as e:
         return jsonify({"error": f"Error processing NIfTI file: {str(e)}"}), 400
     finally:
