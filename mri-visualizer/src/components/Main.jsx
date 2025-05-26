@@ -49,6 +49,8 @@ const Main = () => {
 
     return (
         <main>
+            <h1 style={{ position: 'fixed', top: '-20px', marginLeft: '-90px', textAlign: 'center', width: '100%' }}>Stream Brain: MRI Tumor Analysis</h1>
+
             {!showVisualizer ? (
                 <>
                     <h2>Upload MRI Samples</h2>
@@ -62,17 +64,18 @@ const Main = () => {
                 </>
             ) : (
                 <div>
-                    <h2>2D Slices Visualization</h2>
-                    <div>
-                        <button onClick={() => handleModalityChange('modality_1')}>Modality 1</button>
-                        <button onClick={() => handleModalityChange('modality_2')}>Modality 2</button>
-                        <button onClick={() => handleModalityChange('modality_3')}>Modality 3</button>
-                        <button onClick={() => handleModalityChange('modality_4')}>Modality 4</button>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '20px', position: 'fixed', top: '60px', left: '50%', transform: 'translateX(-50%)' }}>
+                        <button onClick={() => handleModalityChange('modality_1')}>T1 Native</button>
+                        <button onClick={() => handleModalityChange('modality_2')}>T2 FLAIR</button>
+                        <button onClick={() => handleModalityChange('modality_3')}>T1 Contrast</button>
+                        <button onClick={() => handleModalityChange('modality_4')}>T2 Weighted</button>
                         <button onClick={() => handleModalityChange('segmentation')}>Segmentation</button>
                     </div>
+                    <div style={{ marginTop: '90px' }}>
                     {imageFiles[currentModality] && imageFiles[currentModality].map((slice, index) => (
                         <img style={{ width: '100px', height: '100px', margin: '10px' }} key={index} src={`data:image/jpeg;base64,${slice}`} alt={`Slice ${index + 1}`} />
                     ))}
+                    </div>
                 </div>
             )}
         </main>
