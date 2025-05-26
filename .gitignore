@@ -1,2 +1,5 @@
 backend/venv
 mri-visualizer/node_modules
+StreamBrain.pdf
+backend/temp/*
+backend/images/*
