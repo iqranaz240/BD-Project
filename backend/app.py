@@ -113,62 +113,64 @@ def normalize_image(image):
 @app.route('/process_nii', methods=['POST'])
 def process_nii():
     if 'file' not in request.files:
-        return jsonify({"error": "No file part"}), 400
+        return jsonify({"error": "No files part"}), 400
 
-    file = request.files['file']
-    if not file.filename.endswith(('.nii', '.nii.gz')):
-        return jsonify({"error": "File must be a NIfTI file (.nii or .nii.gz)"}), 400
+    files = request.files.getlist('file')  # Get the list of files with the key 'file'
+    if len(files) != 5:
+        return jsonify({"error": "Five NIfTI files must be provided (4 modalities and 1 segmentation)."}), 400
 
-    contents = file.read()
-
-    # Create a temporary file with the correct extension
-    suffix = '.nii.gz' if file.filename.endswith('.nii.gz') else '.nii'
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-        temp_file.write(contents)
-        temp_file_path = temp_file.name
+    all_slices = {
+        'modality_1': [],
+        'modality_2': [],
+        'modality_3': [],
+        'modality_4': [],
+        'segmentation': []
+    }
 
     try:
-        # Load the NIfTI file from the temporary file
-        img = nib.load(temp_file_path)
-        img_data = img.get_fdata()
-        print(f"Data shape: {img_data.shape}")  # Debugging line
+        for file in files:
+            if not file.filename.endswith(('.nii', '.nii.gz')):
+                return jsonify({"error": f"File {file.filename} must be a NIfTI file (.nii or .nii.gz)"}), 400
 
-        # Prepare to store all slices for each modality
-        all_slices = {
-            'modality_1': [],
-            'modality_2': [],
-            'modality_3': [],
-            'modality_4': [],
-            'segmentation': []
-        }
+            contents = file.read()
 
-        # Check the number of dimensions
-        if img_data.ndim == 3:
-            # Handle 3D data (single modality)
+            # Create a temporary file with the correct extension
+            suffix = '.nii.gz' if file.filename.endswith('.nii.gz') else '.nii'
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+                temp_file.write(contents)
+                temp_file_path = temp_file.name
+
+            # Load the NIfTI file from the temporary file
+            img = nib.load(temp_file_path)
+            img_data = img.get_fdata()
+            print(f"Data shape for {file.filename}: {img_data.shape}")  # Debugging line
+
+            # Process all slices for the current modality or segmentation
             for i in range(img_data.shape[2]):  # Iterate over z-axis
                 slice_data = img_data[:, :, i]  # Get the 2D slice
                 # Normalize the slice
                 slice_data = normalize_image(slice_data)
                 base64_image = to_base64(slice_data)
-                all_slices['segmentation'].append(base64_image)  # Store in modality_1
-        elif img_data.ndim == 4:
-            # Handle 4D data (multiple modalities)
-            for modality in range(img_data.shape[3]):  # Iterate over modalities
-                for i in range(img_data.shape[2]):  # Iterate over z-axis
-                    slice_data = img_data[:, :, i, modality]  # Get the 2D slice for the current modality
-                    # Normalize the slice
-                    slice_data = normalize_image(slice_data)
-                    base64_image = to_base64(slice_data)
-                    modality_key = f'modality_{modality + 1}' if modality < 4 else 'segmentation'
-                    all_slices[modality_key].append(base64_image)
+
+                # Assign the base64 image to the correct modality or segmentation
+                if 'seg' in file.filename.lower():
+                    all_slices['segmentation'].append(base64_image)
+                elif file.filename.endswith('t1n.nii') or file.filename.endswith('t1n.nii.gz'):
+                    all_slices['modality_1'].append(base64_image)
+                elif file.filename.endswith('t2f.nii') or file.filename.endswith('t2f.nii.gz'):
+                    all_slices['modality_2'].append(base64_image)
+                elif file.filename.endswith('t1c.nii') or file.filename.endswith('t1c.nii.gz'):
+                    all_slices['modality_3'].append(base64_image)
+                elif file.filename.endswith('t2w.nii') or file.filename.endswith('t2w.nii.gz'):
+                    all_slices['modality_4'].append(base64_image)
+
+            # Clean up the temporary file
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
 
         return jsonify(all_slices)  # Return all slices as a dictionary
     except Exception as e:
-        return jsonify({"error": f"Error processing NIfTI file: {str(e)}"}), 400
-    finally:
-        # Clean up the temporary file
-        if os.path.exists(temp_file_path):
-            os.unlink(temp_file_path)
+        return jsonify({"error": f"Error processing NIfTI files: {str(e)}"}), 400
 
 def to_base64(slice_img):
     """Convert a numpy array slice to a base64-encoded JPEG image."""
