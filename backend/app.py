@@ -11,6 +11,7 @@ from PIL import Image
 import io
 import tempfile
 import base64
+from hdfs import InsecureClient
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -20,6 +21,13 @@ messages_lock = threading.Lock()
 # Directory to save images
 IMAGE_DIR = 'images'
 os.makedirs(IMAGE_DIR, exist_ok=True)
+
+# HDFS configuration
+HDFS_URL = 'http://localhost:9870'
+HDFS_CLIENT = InsecureClient(HDFS_URL)
+
+# Directory in HDFS where the .npy files are stored
+HDFS_DIRECTORY = '/3d_preprocessed/local_output'
 
 def consume_kafka():
     consumer = KafkaConsumer(
@@ -88,11 +96,11 @@ def process_nifti_to_images(file_path):
     print(f"Generated images: {image_files}")  # Debugging line
     return image_files
 
-@app.route('/images/<int:slice_index>', methods=['GET'])
-def get_image(slice_index):
-    # Serve the image file based on the slice index
-    filename = f'slice_{slice_index}.png'
-    return send_file(os.path.join(IMAGE_DIR, filename), mimetype='image/png')
+# @app.route('/images/<int:slice_index>', methods=['GET'])
+# def get_image(slice_index):
+#     # Serve the image file based on the slice index
+#     filename = f'slice_{slice_index}.png'
+#     return send_file(os.path.join(IMAGE_DIR, filename), mimetype='image/png')
 
 def process_files(file_paths):
     spark = SparkSession.builder.appName("MRI Processing").getOrCreate()
@@ -178,6 +186,196 @@ def to_base64(slice_img):
     buf = io.BytesIO()
     img.save(buf, format='JPEG', quality=95)
     return base64.b64encode(buf.getvalue()).decode('utf-8')
+
+# @app.route('/images/<int:image_index>', methods=['GET'])
+# def get_image_from_hdfs(image_index):
+#     """Fetch and return the image from HDFS as a response."""
+#     try:
+#         # Construct the path to the .npy file in HDFS
+#         npy_file_path = f"{HDFS_DIRECTORY}/{image_index}.npy"
+        
+#         # Read the .npy file from HDFS
+#         with HDFS_CLIENT.read(npy_file_path) as reader:
+#             data = np.load(reader)
+
+#         # Convert the numpy array to an image
+#         # Assuming the data is in the shape (height, width) for grayscale images
+#         image = Image.fromarray(data)
+
+#         # Save the image to a BytesIO object
+#         img_byte_arr = io.BytesIO()
+#         image.save(img_byte_arr, format='PNG')
+#         img_byte_arr.seek(0)
+
+#         return send_file(img_byte_arr, mimetype='image/png')
+
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
+
+@app.route('/folders', methods=['GET'])
+def list_folders():
+    """List available folders in HDFS_DIRECTORY."""
+    try:
+        # List files and directories in the HDFS directory
+        items = HDFS_CLIENT.list(HDFS_DIRECTORY)
+        print(f"Items in HDFS directory: {items}")  # Debugging line
+
+        # Filter to get only directories
+        directories = [item for item in items]  # Check for directories
+        print(f"Filtered directories: {directories}")  # Debugging line
+
+        return jsonify(directories), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
+HDFS_DIRECTORY = '/3d_preprocessed/local_output'
+HDFS_CLIENT = InsecureClient("http://localhost:9870", user='Lenovo')  # <-- Change 'your_hdfs_user' accordingly
+
+def to_base64(slice_data):
+    from PIL import Image
+    import base64
+    from io import BytesIO
+    im = Image.fromarray(slice_data)
+    buffered = BytesIO()
+    im.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode()
+
+@app.route('/images/<folder_name>', methods=['GET'])
+def get_images_from_folder(folder_name):
+    """Fetch and return processed images from the specified folder."""
+    try:
+        folder_path = f"{HDFS_DIRECTORY}/{folder_name}"
+        print(f"Accessing folder: {folder_path}")
+
+        items = HDFS_CLIENT.list(folder_path)
+        npy_files = [item for item in items if item.endswith('.npy')]
+        print(f"Found .npy files: {npy_files}")
+
+        all_slices = {
+            'modality_1': [],
+            'modality_2': [],
+            'modality_3': [],
+            'modality_4': [],
+            'segmentation': []
+        }
+
+        for npy_file in npy_files:
+            file_path = f"{folder_path}/{npy_file}"
+            print(f"Reading file: {file_path}")  # Debugging line
+            try:
+                with tempfile.NamedTemporaryFile(suffix=".npy", delete=True) as temp_file:
+                    # Download from HDFS to temp local file
+                    HDFS_CLIENT.download(file_path, temp_file.name, overwrite=True)
+                    temp_file.flush()
+                    data = np.load(temp_file.name)
+
+                    print(f"Processing {npy_file} with shape: {data.shape}")
+
+                    if data.ndim == 3:
+                        for i in range(data.shape[2]):
+                            slice_data = data[:, :, i]
+                            # Normalize slice
+                            min_val = np.min(slice_data)
+                            max_val = np.max(slice_data)
+                            if max_val - min_val > 0:  # Avoid division by zero
+                                slice_data = ((slice_data - min_val) / (max_val - min_val) * 255).astype(np.uint8)
+                            else:
+                                slice_data = np.zeros_like(slice_data, dtype=np.uint8)  # Handle constant values
+
+                            base64_image = to_base64(slice_data)
+
+                            if 'mask' in npy_file.lower():
+                                all_slices['segmentation'].append(base64_image)
+                            elif npy_file.endswith('t1ce.npy'):
+                                all_slices['modality_1'].append(base64_image)
+                            elif npy_file.endswith('t2.npy'):
+                                all_slices['modality_2'].append(base64_image)
+                            elif npy_file.endswith('t1.npy'):
+                                all_slices['modality_3'].append(base64_image)
+                            elif npy_file.endswith('flair.npy'):
+                                all_slices['modality_4'].append(base64_image)
+
+                        print(f"Added {data.shape[2]} slices from {npy_file}.")
+                    else:
+                        print(f"Warning: {npy_file} is not a 3D array.")
+            except Exception as e:
+                print(f"Error reading file {npy_file}: {str(e)}")
+
+        print("All slices:", all_slices)
+        return jsonify(all_slices), 200
+    except Exception as e:
+        return jsonify({"error": f"Error processing images: {str(e)}"}), 500
+
+    """Fetch and return processed images from the specified folder."""
+    try:
+        # Construct the path to the folder in HDFS
+        folder_path = f"{HDFS_DIRECTORY}/{folder_name}"
+        print(f"Accessing folder: {folder_path}")  # Debugging line
+        
+        # List the .npy files in the folder
+        items = HDFS_CLIENT.list(folder_path)
+        npy_files = [item for item in items if item.endswith('.npy')]
+        print(f"Found .npy files: {npy_files}")  # Debugging line
+
+        all_slices = {
+            'modality_1': [],
+            'modality_2': [],
+            'modality_3': [],
+            'modality_4': [],
+            'segmentation': []
+        }
+
+        for npy_file in npy_files:
+            file_path = f"{folder_path}/{npy_file}"
+            print(f"Reading file: {file_path}")  # Debugging line
+            try:
+                with HDFS_CLIENT.read(file_path) as reader:
+                    data = np.load(reader)  # Load the 3D numpy array
+
+                    # Debugging: Print the shape of the data
+                    print(f"Processing {npy_file} with shape: {data.shape}")
+
+                    # Check if the data is 3D
+                    if data.ndim == 3:
+                        for i in range(data.shape[2]):  # Iterate over the z-axis
+                            slice_data = data[:, :, i]  # Get the 2D slice
+                            # Normalize the slice to [0, 255] for image conversion
+                            min_val = np.min(slice_data)
+                            max_val = np.max(slice_data)
+                            if max_val - min_val > 0:  # Avoid division by zero
+                                slice_data = ((slice_data - min_val) / (max_val - min_val) * 255).astype(np.uint8)
+                            else:
+                                slice_data = np.zeros_like(slice_data, dtype=np.uint8)  # Handle constant values
+
+                            base64_image = to_base64(slice_data)
+
+                            # Assign the base64 image to the correct modality based on the filename
+                            if 'mask' in npy_file.lower():
+                                all_slices['segmentation'].append(base64_image)
+                            elif npy_file.endswith('t1ce.npy'):
+                                all_slices['modality_1'].append(base64_image)
+                            elif npy_file.endswith('t2.npy'):
+                                all_slices['modality_2'].append(base64_image)
+                            elif npy_file.endswith('t1.npy'):
+                                all_slices['modality_3'].append(base64_image)
+                            elif npy_file.endswith('flair.npy'):
+                                all_slices['modality_4'].append(base64_image)
+
+                        # Debugging: Print how many slices were added for this file
+                        print(f"Added {data.shape[2]} slices from {npy_file}.")
+                    else:
+                        print(f"Warning: {npy_file} is not a 3D array.")
+            except Exception as e:
+                print(f"Error reading file {npy_file}: {str(e)}")  # Debugging line
+
+        # Debugging: Print the contents of all_slices
+        print("All slices:", all_slices)
+
+        return jsonify(all_slices), 200  # Return all slices as a dictionary
+    except Exception as e:
+        return jsonify({"error": f"Error processing images: {str(e)}"}), 500
 
 if __name__ == '__main__':
     threading.Thread(target=consume_kafka, daemon=True).start()
