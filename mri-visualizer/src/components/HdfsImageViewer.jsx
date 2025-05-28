@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const HdfsImageViewer = () => {
     const [folders, setFolders] = useState([]);
-    const [selectedFolder, setSelectedFolder] = useState('');
+    const [selectedFolder, setSelectedFolder] = useState(null);
     const [images, setImages] = useState({});
     const [loading, setLoading] = useState(false);
     const [currentModality, setCurrentModality] = useState('modality_1'); // Default modality
@@ -42,26 +42,43 @@ const HdfsImageViewer = () => {
         setCurrentModality(modality);
     };
 
+    const handleFolderSelect = (folder) => {
+        setSelectedFolder(folder);
+    };
+
     return (
-        <div>
-            <select onChange={handleFolderChange}>
-                <option value="">Select a folder</option>
+        <div style={{marginTop: '150px', width: '1450px'}}>
+            <h3>HDFS File Processing</h3>
+            
+            {!loading && !selectedFolder &&
+            <div>
+            <h3>Select an MRI Sample to Process</h3>
+             <select onChange={handleFolderChange}>
+
+                <option value="">Samples</option>
                 {folders.map((folder, index) => (
                     <option key={index} value={folder}>{folder}</option>
                 ))}
             </select>
+            </div>
+            }
 
             {loading && <p>Loading images, please wait...</p>}
 
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '20px' }}>
-                <button onClick={() => handleModalityChange('modality_1')}>Modality 1</button>
-                <button onClick={() => handleModalityChange('modality_2')}>Modality 2</button>
-                <button onClick={() => handleModalityChange('modality_3')}>Modality 3</button>
-                <button onClick={() => handleModalityChange('modality_4')}>Modality 4</button>
-                <button onClick={() => handleModalityChange('segmentation')}>Segmentation</button>
-            </div>
+            {!loading && selectedFolder && (
+                <div>
+                    <h2>Processed MRI Images for {selectedFolder}</h2>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '150px' }}>
+                        <button onClick={() => handleModalityChange('modality_1')}>Modality 1</button>
+                        <button onClick={() => handleModalityChange('modality_2')}>Modality 2</button>
+                        <button onClick={() => handleModalityChange('modality_3')}>Modality 3</button>
+                        <button onClick={() => handleModalityChange('modality_4')}>Modality 4</button>
+                        <button onClick={() => handleModalityChange('segmentation')}>Segmentation</button>
+                    </div>
+                </div>
+            )}
 
-            <div style={{ marginTop: '20px', display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <div style={{ marginTop: '20px', marginBottom: '50px', display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
                 {images[currentModality] && images[currentModality].map((image, index) => (
                     <img 
                         style={{ width: '100px', height: '100px', margin: '10px' }} 
