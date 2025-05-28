@@ -276,13 +276,12 @@ def get_images_from_folder(folder_name):
                     if data.ndim == 3:
                         for i in range(data.shape[2]):
                             slice_data = data[:, :, i]
-                            # Normalize slice
                             min_val = np.min(slice_data)
                             max_val = np.max(slice_data)
-                            if max_val - min_val > 0:  # Avoid division by zero
+                            if max_val - min_val > 0:
                                 slice_data = ((slice_data - min_val) / (max_val - min_val) * 255).astype(np.uint8)
                             else:
-                                slice_data = np.zeros_like(slice_data, dtype=np.uint8)  # Handle constant values
+                                slice_data = np.zeros_like(slice_data, dtype=np.uint8)
 
                             base64_image = to_base64(slice_data)
 
@@ -298,12 +297,33 @@ def get_images_from_folder(folder_name):
                                 all_slices['modality_4'].append(base64_image)
 
                         print(f"Added {data.shape[2]} slices from {npy_file}.")
+                    elif data.ndim == 4 and 'mask' in npy_file.lower():
+                        # Special handling for 4D masks (e.g., (H, W, D, C))
+                        h, w, d, c = data.shape
+                        for i in range(d):  # Iterate over depth
+                            # Optionally: merge all classes into one image (e.g., by max projection or overlay)
+                            merged_slice = np.zeros((h, w), dtype=np.uint8)
+                            for j in range(c):
+                                merged_slice += (data[:, :, i, j] > 0).astype(np.uint8) * (j + 1)
+
+                            # Normalize the merged slice
+                            min_val = merged_slice.min()
+                            max_val = merged_slice.max()
+                            if max_val - min_val > 0:
+                                merged_slice = ((merged_slice - min_val) / np.ptp(merged_slice) * 255).astype(np.uint8)
+                            else:
+                                merged_slice = np.zeros_like(merged_slice, dtype=np.uint8)  # Handle constant values
+
+                            base64_mask_image = to_base64(merged_slice)
+                            all_slices['segmentation'].append(base64_mask_image)
+
+                        print(f"Added {d} merged mask slices from {npy_file}.")
                     else:
-                        print(f"Warning: {npy_file} is not a 3D array.")
+                        print(f"Warning: {npy_file} is not a 3D or supported 4D array.")
+
             except Exception as e:
                 print(f"Error reading file {npy_file}: {str(e)}")
 
-        print("All slices:", all_slices)
         return jsonify(all_slices), 200
     except Exception as e:
         return jsonify({"error": f"Error processing images: {str(e)}"}), 500
@@ -336,24 +356,26 @@ def get_images_from_folder(folder_name):
 
                     # Debugging: Print the shape of the data
                     print(f"Processing {npy_file} with shape: {data.shape}")
-
                     # Check if the data is 3D
-                    if data.ndim == 3:
-                        for i in range(data.shape[2]):  # Iterate over the z-axis
-                            slice_data = data[:, :, i]  # Get the 2D slice
-                            # Normalize the slice to [0, 255] for image conversion
-                            min_val = np.min(slice_data)
-                            max_val = np.max(slice_data)
-                            if max_val - min_val > 0:  # Avoid division by zero
-                                slice_data = ((slice_data - min_val) / (max_val - min_val) * 255).astype(np.uint8)
-                            else:
-                                slice_data = np.zeros_like(slice_data, dtype=np.uint8)  # Handle constant values
+                    for i in range(data.shape[2]):  # Iterate over the z-axis
+                        slice_data = data[:, :, i]  # Get the 2D slice
+                        # Normalize the slice to [0, 255] for image conversion
+                        min_val = np.min(slice_data)
+                        max_val = np.max(slice_data)
+                        if max_val - min_val > 0:  # Avoid division by zero
+                            slice_data = ((slice_data - min_val) / (max_val - min_val) * 255).astype(np.uint8)
+                        else:
+                            slice_data = np.zeros_like(slice_data, dtype=np.uint8)  # Handle constant values
 
                             base64_image = to_base64(slice_data)
 
                             # Assign the base64 image to the correct modality based on the filename
                             if 'mask' in npy_file.lower():
-                                all_slices['segmentation'].append(base64_image)
+                                for j in range(img_data.shape[3]):  # Iterate over the 4th dimension
+                                    mask_slice = img_data[:, :, i, j]  # Get the 2D slice for each class
+                                    mask_slice = normalize_image(mask_slice)
+                                    base64_mask_image = to_base64(mask_slice)
+                                    all_slices['segmentation'].append(base64_mask_image)
                             elif npy_file.endswith('t1ce.npy'):
                                 all_slices['modality_1'].append(base64_image)
                             elif npy_file.endswith('t2.npy'):
@@ -365,13 +387,9 @@ def get_images_from_folder(folder_name):
 
                         # Debugging: Print how many slices were added for this file
                         print(f"Added {data.shape[2]} slices from {npy_file}.")
-                    else:
-                        print(f"Warning: {npy_file} is not a 3D array.")
             except Exception as e:
                 print(f"Error reading file {npy_file}: {str(e)}")  # Debugging line
 
-        # Debugging: Print the contents of all_slices
-        print("All slices:", all_slices)
 
         return jsonify(all_slices), 200  # Return all slices as a dictionary
     except Exception as e:
