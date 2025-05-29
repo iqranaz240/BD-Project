@@ -13,7 +13,7 @@ const App = () => {
     <Router>
       <div>
       <Header />
-      <div style={{marginTop: '-250px', alignItems: 'center', margin: '200px, auto 100px auto', alignItems: 'center', alignSelf: 'center', textAlign: 'center', width: '100%'}}>
+      <div style={{marginTop: '-250px', alignItems: 'center', margin: '200px, 200px 100px auto', alignItems: 'center', alignSelf: 'center', textAlign: 'center', width: '100%'}}>
         <Routes>
           <Route path="/" element={<Main />} />
           <Route path="/hdfs" element={<HdfsImageViewer />} />

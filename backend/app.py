@@ -27,7 +27,7 @@ HDFS_URL = 'http://localhost:9870'
 HDFS_CLIENT = InsecureClient(HDFS_URL)
 
 # Directory in HDFS where the .npy files are stored
-HDFS_DIRECTORY = '/3d_preprocessed/local_output'
+HDFS_DIRECTORY = '/BraTs24_3D_Processed_Data'
 
 def consume_kafka():
     consumer = KafkaConsumer(
@@ -230,7 +230,7 @@ def list_folders():
 
 
 
-HDFS_DIRECTORY = '/3d_preprocessed/local_output'
+HDFS_DIRECTORY = '/BraTs24_3D_Processed_Data'
 HDFS_CLIENT = InsecureClient("http://localhost:9870", user='Lenovo')  # <-- Change 'your_hdfs_user' accordingly
 
 def to_base64(slice_data):
@@ -287,13 +287,13 @@ def get_images_from_folder(folder_name):
 
                             if 'mask' in npy_file.lower():
                                 all_slices['segmentation'].append(base64_image)
-                            elif npy_file.endswith('t1ce.npy'):
+                            elif npy_file.endswith('t1n.npy'):
                                 all_slices['modality_1'].append(base64_image)
-                            elif npy_file.endswith('t2.npy'):
+                            elif npy_file.endswith('t1c.npy'):
                                 all_slices['modality_2'].append(base64_image)
-                            elif npy_file.endswith('t1.npy'):
+                            elif npy_file.endswith('t2w.npy'):
                                 all_slices['modality_3'].append(base64_image)
-                            elif npy_file.endswith('flair.npy'):
+                            elif npy_file.endswith('t2f.npy'):
                                 all_slices['modality_4'].append(base64_image)
 
                         print(f"Added {data.shape[2]} slices from {npy_file}.")

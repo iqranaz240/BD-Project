@@ -69,16 +69,16 @@ const HdfsImageViewer = () => {
                 <div>
                     <h2>Processed MRI Images for {selectedFolder}</h2>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '150px' }}>
-                        <button onClick={() => handleModalityChange('modality_1')}>Modality 1</button>
-                        <button onClick={() => handleModalityChange('modality_2')}>Modality 2</button>
-                        <button onClick={() => handleModalityChange('modality_3')}>Modality 3</button>
-                        <button onClick={() => handleModalityChange('modality_4')}>Modality 4</button>
+                        <button onClick={() => handleModalityChange('modality_1')}>T1 Native</button>
+                        <button onClick={() => handleModalityChange('modality_2')}>T1 Contrast</button>
+                        <button onClick={() => handleModalityChange('modality_3')}>T2 Weighted</button>
+                        <button onClick={() => handleModalityChange('modality_4')}>T2 FLAIR</button>
                         <button onClick={() => handleModalityChange('segmentation')}>Segmentation</button>
                     </div>
                 </div>
             )}
 
-            <div style={{ marginTop: '20px', marginBottom: '50px', display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <div style={{ marginTop: '20px', marginBottom: '50px', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', width: '1450px' }}>
                 {images[currentModality] && images[currentModality].map((image, index) => (
                     <img 
                         style={{ width: '100px', height: '100px', margin: '10px' }} 
