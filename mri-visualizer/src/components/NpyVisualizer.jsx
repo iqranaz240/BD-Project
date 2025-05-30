@@ -8,7 +8,7 @@ const NpyVisualizer = ({ npyFiles }) => {
 
     useEffect(() => {
         const loadImages = async () => {
-            const response = await fetch('http://localhost:4000/process', {
+            const response = await fetch('http://localhost:5000/process', {
                 method: 'POST',
                 body: JSON.stringify({ files: npyFiles }),
                 headers: {
@@ -36,7 +36,7 @@ const NpyVisualizer = ({ npyFiles }) => {
             {imageFiles.length > 0 && (
                 <div>
                     <h3>Slice {currentSlice + 1} of {imageFiles.length}</h3>
-                    <img src={`http://localhost:4000/images/${currentSlice}`} alt={`Slice ${currentSlice + 1}`} />
+                    <img src={`http://localhost:5000/images/${currentSlice}`} alt={`Slice ${currentSlice + 1}`} />
                     <div>
                         <button onClick={() => handleSliceChange('prev')}>Previous Slice</button>
                         <button onClick={() => handleSliceChange('next')}>Next Slice</button>

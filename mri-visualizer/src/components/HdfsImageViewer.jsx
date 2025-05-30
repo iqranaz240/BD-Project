@@ -12,7 +12,7 @@ const HdfsImageViewer = () => {
         // Fetch the list of folders when the component mounts
         const fetchFolders = async () => {
             try {
-                const response = await axios.get('http://localhost:4000/folders');
+                const response = await axios.get('http://localhost:5000/folders');
                 setFolders(response.data);
             } catch (error) {
                 console.error('Error fetching folders:', error);
@@ -29,7 +29,7 @@ const HdfsImageViewer = () => {
 
         // Call the API to get images for the selected folder
         try {
-            const response = await axios.get(`http://localhost:4000/images/${folderName}`);
+            const response = await axios.get(`http://localhost:5000/images/${folderName}`);
             setImages(response.data); // Store the resulting images for all modalities
         } catch (error) {
             console.error('Error fetching images:', error);

@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request, send_from_directory, send_file, abort
 from flask_cors import CORS  # Import CORS
+from flask_socketio import SocketIO
 from kafka import KafkaConsumer
 import threading
 import json
@@ -15,6 +16,7 @@ from hdfs import InsecureClient
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
+socketio = SocketIO(app, cors_allowed_origins="*")  # Enable WebSocket with CORS
 messages = []
 messages_lock = threading.Lock()
 
@@ -29,27 +31,34 @@ HDFS_CLIENT = InsecureClient(HDFS_URL)
 # Directory in HDFS where the .npy files are stored
 HDFS_DIRECTORY = '/BraTs24_3D_Processed_Data'
 
+# Store active WebSocket connections
+active_connections = set()
+
 def consume_kafka():
     consumer = KafkaConsumer(
-        'test-topic',
+        'mri-slices',  # Changed to match the topic name used in producer
         bootstrap_servers='localhost:9092',
         auto_offset_reset='earliest',
         group_id='my-group',
-        value_deserializer=lambda m: m.decode('utf-8') if m else None  # Decode bytes to str, don't parse JSON here
+        value_deserializer=lambda m: json.loads(m.decode('utf-8')) if m else None
     )
     for msg in consumer:
-        raw_value = msg.value
-        if raw_value:
+        if msg.value:
             try:
-                # Attempt to parse JSON here with error handling
-                data = json.loads(raw_value)
+                data = msg.value
+                # Emit the message to all connected WebSocket clients
+                socketio.emit('mri_slice', data)
                 with messages_lock:
                     messages.append(data)
                     if len(messages) > 1000:
                         messages.pop(0)
-            except json.JSONDecodeError:
-                # Skip invalid JSON messages silently or log them if you want
-                print(f"Warning: skipping invalid JSON message: {raw_value}")
+            except Exception as e:
+                print(f"Error processing message: {e}")
+
+# Start Kafka consumer in a separate thread
+kafka_thread = threading.Thread(target=consume_kafka)
+kafka_thread.daemon = True
+kafka_thread.start()
 
 @app.route('/data')
 def get_data():
@@ -396,5 +405,4 @@ def get_images_from_folder(folder_name):
         return jsonify({"error": f"Error processing images: {str(e)}"}), 500
 
 if __name__ == '__main__':
-    threading.Thread(target=consume_kafka, daemon=True).start()
-    app.run(port=4000, debug=True)
+    socketio.run(app, debug=True, port=5000)

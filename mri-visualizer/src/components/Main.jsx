@@ -24,7 +24,7 @@ const Main = () => {
 
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:4000/process_nii', {
+            const response = await fetch('http://localhost:5000/process_nii', {
                 method: 'POST',
                 body: formData,
             });

@@ -22,7 +22,7 @@ HDFS_CLIENT = InsecureClient(HDFS_URL)
 # Directory in HDFS where the .npy files are stored
 HDFS_DIRECTORY = '/BraTs24_3D_Processed_Data'
 
-def process_npy_file(npy_file_path):
+def process_npy_file(npy_file_path, folder_name):
     print(f"Processing file: {npy_file_path}")
     
     # Create a temporary file
@@ -51,6 +51,7 @@ def process_npy_file(npy_file_path):
         # Send slice to Kafka
         if img_b64:
             message = {
+                'folder_name': folder_name,
                 'slice_index': i,
                 'slice_data': img_b64  # Send the base64-encoded image
             }
@@ -58,7 +59,7 @@ def process_npy_file(npy_file_path):
             print(f"Sent slice {i} to Kafka: {message}")  # Print the JSON message sent
         else:
             print(f"[WARN] No valid image data for slice index {i}")
-        time.sleep(100)
+        time.sleep(1)
 
 def main():
     # List all folders in the HDFS directory
@@ -78,8 +79,8 @@ def main():
             for npy_file in npy_files:
                 npy_file_path = f"{folder_path}/{npy_file}"
                 print(f"Processing file: {npy_file_path}")
-                process_npy_file(npy_file_path)
-                time.sleep(1000)  # Optional: Sleep to simulate real-time processing
+                process_npy_file(npy_file_path, folder)
+                time.sleep(5)  # Optional: Sleep to simulate real-time processing
     finally:
         producer.close()
 
