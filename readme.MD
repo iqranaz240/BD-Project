@@ -1,9 +1,3 @@
-activate backend venv 
-    .\\venv\Scripts\activate
-
-run backend
-    python app.py
-
 start hadoop 
     start-all.cmd
 
@@ -15,6 +9,12 @@ start kafka server
 
 kafka consumer log
     kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic mri-slices --from-beginning
+
+activate backend venv 
+    .\\venv\Scripts\activate
+
+run backend
+    python app.py
 
 start consumer (backend)
     python consumer.py

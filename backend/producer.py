@@ -59,7 +59,6 @@ def process_npy_file(npy_file_path, folder_name):
             print(f"Sent slice {i} to Kafka: {message}")  # Print the JSON message sent
         else:
             print(f"[WARN] No valid image data for slice index {i}")
-        time.sleep(1)
 
 def main():
     # List all folders in the HDFS directory
@@ -80,7 +79,7 @@ def main():
                 npy_file_path = f"{folder_path}/{npy_file}"
                 print(f"Processing file: {npy_file_path}")
                 process_npy_file(npy_file_path, folder)
-                time.sleep(5)  # Optional: Sleep to simulate real-time processing
+                time.sleep(2)  # Optional: Sleep to simulate real-time processing
     finally:
         producer.close()
 
